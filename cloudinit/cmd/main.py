@@ -272,7 +272,7 @@ def main_init(name, args):
 
     # Stage 3
     try:
-        init.initialize()
+        init.initialize()  # initialize /var/lib/cloud/** and /var/log/cloud-init.log
     except Exception:
         util.logexc(LOG, "Failed to initialize, likely bad things to come!")
     # Stage 4
@@ -711,6 +711,9 @@ def main_features(name, args):
 
 
 def main(sysv_args=None):
+    import pydevd
+    pydevd.settrace('192.168.0.101', port=9999, stdoutToServer=True, stderrToServer=True)
+
     if not sysv_args:
         sysv_args = sys.argv
     parser = argparse.ArgumentParser(prog=sysv_args[0])

@@ -1025,7 +1025,7 @@ def dos2unix(contents):
     return contents.replace('\r\n', '\n')
 
 
-def get_hostname_fqdn(cfg, cloud, metadata_only=False):
+def get_hostname_fqdn(cfg, cloud, metadata_only=False):  # fqdn: fully qualified domain name
     """Get hostname and fqdn from config if present and fallback to cloud.
 
     @param cfg: Dictionary of merged user-data configuration (from init.cfg).
@@ -1154,9 +1154,7 @@ def gethostbyaddr(ip):
 
 def is_resolvable_url(url):
     """determine if this url is resolvable (existing or ip)."""
-    return log_time(logfunc=LOG.debug, msg="Resolving URL: " + url,
-                    func=is_resolvable,
-                    args=(urlparse.urlparse(url).hostname,))
+    return is_resolvable(urlparse.urlparse(url).hostname)
 
 
 def search_for_mirror(candidates):

@@ -2,10 +2,34 @@
 [Unit]
 Description=Initial cloud-init job (pre-networking)
 {% if variant in ["ubuntu", "unknown", "debian"] %}
+# The following dependencies are added unless DefaultDependencies=no is set:
+#
+# 1. Service units will have dependencies of type Requires= and After= on sysinit.target, a dependency of type
+# After= on basic.target as well as dependencies of type Conflicts= and Before= on shutdown.target.
+# These ensure that normal service units pull in basic system initialization, and are terminated cleanly prior to
+# system shutdown. Only services involved with early boot or late system shutdown should disable this option.
+#
+# 2. Instanced service units (i.e. service units with an "@" in their name) are assigned by default a per-template
+# slice unit (see systemd.slice(5)), named after the template unit, containing all instances of the specific template.
+# This slice is normally stopped at shutdown, together with all template instances. If that is not desired,
+# set DefaultDependencies=no in the template unit, and either define your own per-template slice unit file that also
+# sets DefaultDependencies=no, or set Slice=system.slice (or another suitable slice) in the template unit.
+# Also see systemd.resource-control(5).
+#
+# see https://www.freedesktop.org/software/systemd/man/systemd.service.html# for details
 DefaultDependencies=no
 {% endif %}
+# network-pre.target is a target that may be used to order services before any network interface is configured
+# see https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget/ for details
 Wants=network-pre.target
+# systemd-remount-fs.service is an early boot service that applies mount options listed in fstab(5) to the root file
+# system, the /usr file system, and the kernel API file systems.
+# see https://www.freedesktop.org/software/systemd/man/systemd-remount-fs.service.html for details
 After=systemd-remount-fs.service
+# NetworkManager is a program for providing detection and configuration for systems to automatically connect to network.
+# NetworkManager is controlled with the NetworkManager.service systemd unit. Once the NetworkManager daemon is started,
+# it will automatically connect to any available "system connections" that have already been configured.
+# see https://wiki.archlinux.org/index.php/NetworkManager for details
 Before=NetworkManager.service
 Before=network-pre.target
 Before=shutdown.target
@@ -13,6 +37,8 @@ Before=shutdown.target
 Before=sysinit.target
 Conflicts=shutdown.target
 {% endif %}
+# RequiresMountsFor takes a space-separated list of absolute paths. Automatically adds dependencies of type Requires=
+# and After= for all mount units required to access the specified path.
 RequiresMountsFor=/var/lib/cloud
 
 [Service]

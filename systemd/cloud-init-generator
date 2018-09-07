@@ -18,9 +18,13 @@ debug() {
     local lvl="$1"
     shift
     [ "$lvl" -gt "$DEBUG_LEVEL" ] && return
+    # if var.length == 0
     if [ -z "$LOG" ]; then
+        # log = /run/cloud-init/cloud-init-generator.log
+        # ${parameter##[word]}: remove largest prefix pattern defined by [word] from parameter, e.g., var = http://127.0.0.1/index.php, then ${var##*/} = index.php
         local log="$LOG_D/${0##*/}.log"
         { [ -d "$LOG_D" ] || mkdir -p "$LOG_D"; } &&
+            # ": > $log" means clearing out log file or creates an empty log file
             { : > "$log"; } >/dev/null 2>&1 && LOG="$log" ||
             LOG="/dev/kmsg"
     fi
@@ -28,6 +32,10 @@ debug() {
 }
 
 etc_file() {
+    # ${parameter:-word}:
+    # substitute parameter in case of "parameter Set and Not Null"
+    # substitute word in case of "parameter Set But Null"
+    # substitute word in case of "parameter Unset"
     local pprefix="${1:-/etc/cloud/cloud-init.}"
     _RET="unset"
     [ -f "${pprefix}$ENABLE" ] && _RET="$ENABLE" && return 0
@@ -55,6 +63,15 @@ read_proc_cmdline() {
 
 kernel_cmdline() {
     local cmdline="" tok=""
+    # ${parameter+word}:
+    # substitute word in case of "parameter Set and Not Null"
+    # substitute word in case of "parameter Set But Null"
+    # substitute null in case of "parameter Unset"
+    #
+    # Compared with ${parameter:+word}:
+    # substitute word in case of "parameter Set and Not Null"
+    # substitute null in case of "parameter Set But Null"
+    # substitute null in case of "parameter Unset"
     if [ -n "${KERNEL_CMDLINE+x}" ]; then
         # use KERNEL_CMDLINE if present in environment even if empty
         cmdline=${KERNEL_CMDLINE}
@@ -67,7 +84,9 @@ kernel_cmdline() {
     cmdline=" $cmdline "
     tok=${cmdline##* cloud-init=}
     [ "$tok" = "$cmdline" ] && _RET="unset"
+    # ${parameter%[word]}: remove largest suffix pattern defined by [word] from parameter, e.g., var = http://127.0.0.1/index.php, then ${var%%/*} = http:
     tok=${tok%% *}
+    # -o: logical OR
     [ "$tok" = "$ENABLE" -o "$tok" = "$DISABLE" ] && _RET="$tok"
     return 0
 }
@@ -78,6 +97,7 @@ default() {
 
 check_for_datasource() {
     local ds_rc="" dsidentify="/usr/lib/cloud-init/ds-identify"
+    # if /usr/lib/cloud-init/ds-identify is executable
     if [ ! -x "$dsidentify" ]; then
         debug 1 "no ds-identify in $dsidentify. _RET=$FOUND"
         return 0
@@ -96,12 +116,38 @@ check_for_datasource() {
 }
 
 main() {
+    # normal_d = /run/systemd/generator in case of the system generator
+    # early_d = /run/systemd/generator.early in case of the system generator
+    # late_d = /run/systemd/generator.late in case of the system generator
+    # priorities: late-dir < vendor unit configuration < normal-dir < native user/administrator unit configuration < early-dir
+    # see https://www.freedesktop.org/software/systemd/man/systemd.generator.html for details
     local normal_d="$1" early_d="$2" late_d="$3"
+
+    # Run level 0 is matched by poweroff.target (and runlevel0.target is a symbolic link to poweroff.target).
+    # Run level 1 is matched by rescue.target (and runlevel1.target is a symbolic link to rescue.target).
+    # Run level 3 is emulated by multi-user.target (and runlevel3.target is a symbolic link to multi-user.target).
+    # Run level 5 is emulated by graphical.target (and runlevel5.target is a symbolic link to graphical.target).
+    # Run level 6 is emulated by reboot.target (and runlevel6.target is a symbolic link to reboot.target).
+    # Emergency is matched by emergency.target.
+    #
+    # Compared with SystemV init:
+    # 0 — Halt
+    # 1 — Single-user text mode
+    # 2 — Not used (user-definable) / Multi-user mode without networking (for some linux distributions)
+    # 3 — Full multi-user text mode / Multi-user mode with networking (for some linux distributions)
+    # 4 — Not used (user-definable)
+    # 5 — Full multi-user graphical mode (with an X-based login screen)
+    # 6 — Reboot
+    # see https://www.ibm.com/developerworks/library/l-lpic1-101-3/ or https://www.tecmint.com/change-runlevels-targets-in-systemd/ for details
     local target_name="multi-user.target" gen_d="$early_d"
+
+    # link_path = /run/systemd/generator.early/multi-user.target.wants/cloud-init.target
     local link_path="$gen_d/${target_name}.wants/${CLOUD_TARGET_NAME}"
     local ds="$NOTFOUND"
 
     debug 1 "$0 normal=$normal_d early=$early_d late=$late_d"
+    # $*: all parameters as a single string
+    # $@: all parameters as a list
     debug 2 "$0 $*"
 
     local search result="error" ret=""
